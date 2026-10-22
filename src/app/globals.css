@@ -363,6 +363,14 @@ textarea { resize: vertical; min-height: 110px; }
 .welcome-copy { padding: 60px 0; }
 .welcome-copy h1 { font-size: clamp(44px,5vw,66px); line-height: 1.08; letter-spacing: -2px; margin: 24px 0; }
 .welcome-copy p { font-size: 17px; max-width: 300px; color: var(--muted); }
+.auth-info-links { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px; }
+.auth-info-links a, .public-info a:not(.wordmark) { color: var(--brand); text-decoration: underline; text-underline-offset: 3px; }
+.public-info { max-width: 780px; margin: 0 auto; padding: 40px 24px 64px; }
+.public-info header { margin: 40px 0 32px; }
+.public-info h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.15; letter-spacing: -1px; margin: 14px 0; }
+.public-info h2 { font-size: 20px; margin: 32px 0 12px; }
+.public-info article p { color: var(--muted); line-height: 1.75; margin: 12px 0; overflow-wrap: anywhere; }
+.public-info nav { display: flex; flex-wrap: wrap; gap: 20px; border-top: 1px solid var(--line); padding-top: 24px; margin-top: 36px; }
 .welcome-school, .welcome-footer { display: flex; gap: 10px; align-items: center; color: var(--muted); font-size: 12px; }
 .welcome-school svg { color: var(--brand); }
 .welcome-card { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 32px; width: 100%; }

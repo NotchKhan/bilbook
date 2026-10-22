@@ -58,6 +58,7 @@ export function Welcome({ session, done }: { session: Session; done: () => void 
       {session.error && <p className="error" role="alert">{session.error}</p>}
       <div className="form-links">{onboard ? <button className="text-button" disabled={busy} onClick={async () => {setBusy(true);try {await api("auth",{action:"signout"});done();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}}>Другой аккаунт</button> : <button className="text-button" disabled={busy} onClick={() => {setMode(mode === "reset" ? "signin" : "reset");setMessage("");setError("");}}>{mode === "reset" ? "Вернуться ко входу" : "Забыли пароль?"}</button>}</div>
       <p className="fine">Приглашение выдаёт администратор школы. Пароль Google вводится только на странице Google.</p>
+      <nav className="auth-info-links fine" aria-label="О сервисе"><a href="/privacy">Конфиденциальность</a><a href="/terms">Правила сообщества</a></nav>
     </section>
   </main>;
 }
