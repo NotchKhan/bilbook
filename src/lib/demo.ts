@@ -71,8 +71,7 @@ export const demoRequests: FeedItem[] = [
 ];
 
 // Local illustrative AI-generated images: never used by real API data.
-export function demoPhoto(id: string) {
-  return id === "demo-team" || id === "demo-0" || id === "demo-3"
-    ? "/demo/team.png"
-    : "/demo/courtyard.png";
+export function demoPhoto(id: string, thumbnail = false) {
+  const name = id === "demo-team" || id === "demo-0" || id === "demo-3" ? "team" : "courtyard";
+  return `/demo/${name}${thumbnail ? "-thumb" : ""}.webp`;
 }

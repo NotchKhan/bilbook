@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import {
   Home,
   Newspaper,
@@ -21,10 +22,11 @@ import {
 import { api } from "@/lib/client";
 import { appName, categories, roles, type Session } from "@/lib/types";
 import { demoSession } from "@/lib/demo";
-import { AuthForm, Compose } from "./forms";
 import { Feed, Stories } from "./feed";
-import { Admin } from "./admin";
 import { Avatar, Busy, Modal } from "./ui";
+const AuthForm = dynamic(() => import("./forms").then((m) => m.AuthForm), { loading: () => <Busy /> });
+const Compose = dynamic(() => import("./forms").then((m) => m.Compose), { loading: () => <Busy /> });
+const Admin = dynamic(() => import("./admin").then((m) => m.Admin), { loading: () => <Busy /> });
 type InstallEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: string }>;

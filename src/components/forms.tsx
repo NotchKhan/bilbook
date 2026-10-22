@@ -234,7 +234,7 @@ export function Compose({
     try {
       if (file) {
         const upload = new FormData();
-        upload.set("file", await compressImage(file));
+        upload.set("file", await compressImage(file, kind === "profile" ? "avatar" : kind));
         upload.set("purpose", kind === "profile" ? "avatar" : kind);
         media_id = (await api<{ id: string }>("upload", upload)).id;
       }

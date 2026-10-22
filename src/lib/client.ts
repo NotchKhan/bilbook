@@ -1,4 +1,22 @@
-export async function api<T = Record<string, unknown>>(
+// Share only requests currently in flight. No private data persists after settlement.
+const pendingReads = new Map<string, Promise<unknown>>();
+export function api<T = Record<string, unknown>>(
+  path: string,
+  body?: unknown,
+): Promise<T> {
+  if (body !== undefined) {
+    pendingReads.clear(); // Never join a read started before login/logout or a mutation.
+    return request<T>(path, body).finally(() => pendingReads.clear());
+  }
+  const existing = pendingReads.get(path);
+  if (existing) return existing as Promise<T>;
+  const pending = request<T>(path).finally(() => {
+    if (pendingReads.get(path) === pending) pendingReads.delete(path);
+  });
+  pendingReads.set(path, pending);
+  return pending;
+}
+async function request<T = Record<string, unknown>>(
   path: string,
   body?: unknown,
 ): Promise<T> {

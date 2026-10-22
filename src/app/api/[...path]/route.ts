@@ -19,6 +19,7 @@ import {
 } from "@/lib/server";
 import { cleanMedia, signedTtl, linkWithinStoryLifetime } from "@/lib/cleanup";
 import type { FeedItem } from "@/lib/types";
+import { imagePolicy } from "@/lib/image-policy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -191,21 +192,25 @@ export async function GET(request: Request) {
       checkDb(error);
       const items = (data || []) as unknown as FeedItem[];
       if (items.length) {
+        // Reactions and author metadata are independent; keep all queries under RLS.
+        await Promise.all([
+          (async () => {
         if (kind !== "stories") {
-          const { data: counts, error: ce } = await db.rpc("reaction_counts", {
-            kind,
-            ids: items.map((i) => i.id),
-          });
-          checkDb(ce);
           const target = kind === "news" ? "likes" : "supports",
             column = kind === "news" ? "news_id" : "request_id";
-          const { data: own, error: oe } = await db
+          const [countsResult, ownResult] = await Promise.all([
+            db.rpc("reaction_counts", { kind, ids: items.map((i) => i.id) }),
+            db
             .from(target)
             .select(column)
             .in(
               column,
               items.map((i) => i.id),
-            );
+            ),
+          ]);
+          const { data: counts, error: ce } = countsResult;
+          const { data: own, error: oe } = ownResult;
+          checkDb(ce);
           checkDb(oe);
           const reacted = new Set(
             (own || []).map(
@@ -220,6 +225,8 @@ export async function GET(request: Request) {
             item.reacted = reacted.has(item.id);
           }
         }
+          })(),
+          (async () => {
         if (kind === "requests") {
           const { data: authors, error: ae } = await db
             .from("request_authors")
@@ -254,6 +261,8 @@ export async function GET(request: Request) {
             item.author_avatar = a?.avatar_id;
           }
         }
+          })(),
+        ]);
       }
       return json({ items, cursor: nextCursor(items) });
     }
@@ -467,12 +476,12 @@ async function upload(request: Request) {
     output = await image
       .rotate()
       .resize({
-        width: 1600,
-        height: 1600,
+        width: imagePolicy(purpose).edge,
+        height: imagePolicy(purpose).edge,
         fit: "inside",
         withoutEnlargement: true,
       })
-      .webp({ quality: 78 })
+      .webp({ quality: imagePolicy(purpose).quality })
       .toBuffer();
   } catch {
     throw new HttpError(

@@ -165,7 +165,7 @@ export function Feed({
           </button>
         </div>
       )}
-      {items.map((item) => (
+      {items.map((item, itemIndex) => (
         <article
           className={
             "post " + (kind === "requests" ? "request-card" : "news-post")
@@ -217,7 +217,8 @@ export function Feed({
                 demo ? demoPhoto(item.media_id) : "/api/media/" + item.media_id
               }
               alt={item.title || "Фото публикации"}
-              loading="lazy"
+              loading={itemIndex === 0 ? "eager" : "lazy"}
+              fetchPriority={itemIndex === 0 ? "high" : "auto"}
               decoding="async"
             />
             </button>
@@ -530,7 +531,7 @@ export function Stories({
     return () => {
       active = false;
     };
-  }, [profile, demo, version]);
+  }, [profile?.id, demo, version]);
   useEffect(() => {
     if (demo) return;
     const t = setInterval(() => {
@@ -586,7 +587,7 @@ export function Stories({
                 {demo ? (
                   <img
                     className="story-thumb"
-                    src={demoPhoto(s.media_id!)}
+                    src={demoPhoto(s.media_id!, true)}
                     alt=""
                     loading="lazy"
                   />

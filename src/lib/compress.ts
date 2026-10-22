@@ -1,5 +1,6 @@
 // Compress before crossing Vercel's request-size limit; the server revalidates/re-encodes.
-export async function compressImage(file: File): Promise<File> {
+import { imagePolicy } from "./image-policy";
+export async function compressImage(file: File, purpose = "news"): Promise<File> {
   if (
     file.size > 8 * 1024 * 1024 ||
     !["image/jpeg", "image/png", "image/webp"].includes(file.type)
@@ -14,7 +15,8 @@ export async function compressImage(file: File): Promise<File> {
   try {
     if (bitmap.width * bitmap.height > 40000000)
       throw Error("Размер изображения превышает 40 мегапикселей.");
-    const ratio = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+    const policy = imagePolicy(purpose);
+    const ratio = Math.min(1, policy.edge / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(bitmap.width * ratio));
     canvas.height = Math.max(1, Math.round(bitmap.height * ratio));
@@ -25,7 +27,7 @@ export async function compressImage(file: File): Promise<File> {
       canvas.toBlob(
         (v) => (v ? resolve(v) : reject(Error("Не удалось сжать фото."))),
         "image/webp",
-        0.78,
+        policy.quality / 100,
       ),
     );
     if (blob.size > 3 * 1024 * 1024)

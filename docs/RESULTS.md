@@ -12,3 +12,5 @@ Supabase и Vercel подключены. Первоначальная регис
 
 Старые скриншоты в `screenshots/` и IMAGE-CONCEPT.md показывают предыдущий дизайн.
 - Production-сборка Next.js успешно завершена.
+
+Оптимизация скорости: 34 теста в 6 файлах, TypeScript и сборка прошли. Измерения и ограничения — [PERFORMANCE.md](PERFORMANCE.md).

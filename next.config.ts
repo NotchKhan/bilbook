@@ -33,6 +33,11 @@ const config: NextConfig = {
           },
         ],
       },
+      {
+        // Only fictional public assets. Private media and API responses remain no-store.
+        source: "/demo/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" }],
+      },
     ];
   },
 };

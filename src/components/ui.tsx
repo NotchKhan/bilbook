@@ -66,7 +66,7 @@ export function Avatar({
   return (
     <span className={"avatar " + size}>
       {id ? (
-        <img src={"/api/media/" + id} alt="" />
+        <img src={"/api/media/" + id} alt="" loading="lazy" decoding="async" width={88} height={88} />
       ) : (
         name
           .split(" ")
