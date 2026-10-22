@@ -15,6 +15,8 @@ import {
   School,
   WifiOff,
   X,
+  ImagePlus,
+  ChevronRight,
 } from "lucide-react";
 import { api } from "@/lib/client";
 import { appName, categories, roles, type Session } from "@/lib/types";
@@ -53,6 +55,7 @@ export function App({ demo = false }: { demo?: boolean }) {
     [loading, setLoading] = useState(!demo),
     [tab, setTab] = useState("home"),
     [auth, setAuth] = useState(false),
+    [createMenu, setCreateMenu] = useState(false),
     [reset, setReset] = useState(false),
     [compose, setCompose] = useState<
       "story" | "news" | "request" | "profile" | null
@@ -142,6 +145,7 @@ export function App({ demo = false }: { demo?: boolean }) {
     setAuth(true);
   }
   function create(kind: "story" | "news" | "request" | "profile") {
+    setCreateMenu(false);
     if (!profile) {
       login();
       return;
@@ -204,6 +208,9 @@ export function App({ demo = false }: { demo?: boolean }) {
               </button>
             )}
           </nav>
+          <button className="button sidebar-create" onClick={() => setCreateMenu(true)}>
+            <Plus size={21} /> Создать
+          </button>
           <div className="sidebar-spacer" />
           <button className="install-help" onClick={() => setInstallHelp(true)}>
             <Smartphone size={20} />
@@ -242,14 +249,14 @@ export function App({ demo = false }: { demo?: boolean }) {
             <div className="topbar-right">
               <button
                 className="header-create"
-                aria-label="Добавить историю"
-                onClick={() => create("story")}
+                aria-label="Создать"
+                onClick={() => setCreateMenu(true)}
               >
                 <Plus size={24} />
               </button>
               <span className="private-label">
                 <span />
-                Закрытое пространство
+                Только своя школа
               </span>
               <button
                 className="mobile-avatar"
@@ -359,7 +366,7 @@ export function App({ demo = false }: { demo?: boolean }) {
                           aria-label="Категории новостей"
                         >
                           {[
-                            ["", "Все записи"],
+                            ["", "Лента"],
                             ...Object.entries(categories).filter(([k]) =>
                               [
                                 "news",
@@ -387,17 +394,9 @@ export function App({ demo = false }: { demo?: boolean }) {
                             onClick={() => create("request")}
                           >
                             <MessageSquareText size={22} />
-                            <span>Есть идея или проблема?</span>
-                            <strong>Обратиться</strong>
+                            <span>Что улучшим в школе?</span>
+                            <ChevronRight size={19} />
                           </button>
-                          {profile?.is_editor && (
-                            <button
-                              className="button editor-compose"
-                              onClick={() => create("news")}
-                            >
-                              <Plus size={18} /> Новая публикация
-                            </button>
-                          )}
                         </div>
                       )}
                       <Feed
@@ -417,18 +416,17 @@ export function App({ demo = false }: { demo?: boolean }) {
                         <div>
                           <h1>Обращения</h1>
                           <p className="muted">
-                            Проблема, предложение или личная ситуация.
+                            Идеи, проблемы и ответы школы.
                           </p>
                         </div>
                       </div>
                       <div className="request-intro">
                         <div>
                           <ShieldCheck size={25} />
-                          <h3>Выбери, кому рассказать</h3>
+                          <h3>Тебя услышат</h3>
                           <p>
-                            Школьные проблемы — через проверку в общую ленту.
-                            <br />
-                            Личные ситуации — только назначенным взрослым.
+                            Школьные вопросы — в общую ленту после проверки.
+                            Личные — только назначенным взрослым.
                           </p>
                         </div>
                         <button
@@ -436,7 +434,7 @@ export function App({ demo = false }: { demo?: boolean }) {
                           onClick={() => create("request")}
                         >
                           <Plus size={18} />
-                          Создать обращение
+                          Написать
                         </button>
                       </div>
                       <div className="chips">
@@ -489,6 +487,7 @@ export function App({ demo = false }: { demo?: boolean }) {
                       </div>
                       {profile ? (
                         <div className="panel profile-panel">
+                          <div className="profile-cover" aria-hidden="true"><span>BilBook</span></div>
                           <Avatar
                             name={profile.name}
                             id={profile.avatar_id}
@@ -518,7 +517,7 @@ export function App({ demo = false }: { demo?: boolean }) {
                               className="button"
                               onClick={() => create("profile")}
                             >
-                              Редактировать профиль
+                              Редактировать
                             </button>
                             {manager && (
                               <button
@@ -612,18 +611,30 @@ export function App({ demo = false }: { demo?: boolean }) {
         </div>
       </div>
       <nav className="bottom-nav" aria-label="Навигация на телефоне">
-        {navigation.map(({ id, label, Icon }) => (
+        {navigation.map(({ id, label, Icon }, index) => (
+          <div className="nav-slot" key={id}>
+          {index === 2 && <button className="nav-create" aria-label="Создать" onClick={() => setCreateMenu(true)}><Plus size={26} /></button>}
           <button
             key={id}
             className={tab === id ? "active" : ""}
             onClick={() => navigate(id)}
             aria-current={tab === id ? "page" : undefined}
           >
-            <Icon size={22} />
+            {id === "profile" && profile ? <Avatar name={profile.name} id={profile.avatar_id} /> : <Icon size={22} />}
             <span>{label}</span>
           </button>
+          </div>
         ))}
       </nav>
+      {createMenu && (
+        <Modal title="Создать" close={() => setCreateMenu(false)}>
+          <div className="create-options">
+            <button onClick={() => create("story")}><span className="create-icon"><ImagePlus /></span><span><strong>История</strong><small>Фото на 24 часа</small></span><ChevronRight size={20} /></button>
+            {profile?.is_editor && <button onClick={() => create("news")}><span className="create-icon"><Newspaper /></span><span><strong>Публикация</strong><small>Новость, событие или достижение</small></span><ChevronRight size={20} /></button>}
+            <button onClick={() => create("request")}><span className="create-icon"><MessageSquareText /></span><span><strong>Обращение</strong><small>Идея, проблема или личный вопрос</small></span><ChevronRight size={20} /></button>
+          </div>
+        </Modal>
+      )}
       {auth && (
         <AuthForm
           configured={session.configured}

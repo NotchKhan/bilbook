@@ -45,6 +45,10 @@ export function Feed({
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [detail, setDetail] = useState<FeedItem | null>(null),
+    [photo, setPhoto] = useState<FeedItem | null>(null),
+    [deleting, setDeleting] = useState<FeedItem | null>(null),
+    [deleteBusy, setDeleteBusy] = useState(false),
+    [deleteError, setDeleteError] = useState(""),
     [rev, setRev] = useState(0);
   const enabled = Boolean(profile);
   const reactionLock = useRef(new Set<string>());
@@ -139,11 +143,16 @@ export function Feed({
     }
   }
   async function remove(item: FeedItem) {
+    setDeleteBusy(true);
+    setDeleteError("");
     try {
       await command("delete_news", { id: item.id });
+      setDeleting(null);
       setRev((v) => v + 1);
     } catch (e) {
-      setError((e as Error).message);
+      setDeleteError((e as Error).message);
+    } finally {
+      setDeleteBusy(false);
     }
   }
   return (
@@ -193,7 +202,7 @@ export function Feed({
                 <button
                   className="icon-button danger"
                   aria-label="Удалить новость"
-                  onClick={() => remove(item)}
+                  onClick={() => { setDeleting(item); setDeleteError(""); }}
                 >
                   <Trash2 size={18} />
                 </button>
@@ -201,6 +210,7 @@ export function Feed({
             {item.confidential && <LockKeyhole size={18} />}
           </div>
           {item.media_id && kind === "news" && (
+            <button className="photo-open" aria-label={"Открыть фото: " + (item.title || "публикация")} onClick={() => setPhoto(item)}>
             <img
               className="post-image"
               src={
@@ -210,6 +220,7 @@ export function Feed({
               loading="lazy"
               decoding="async"
             />
+            </button>
           )}
           <div className="post-body">
             <div className="badges">
@@ -292,11 +303,22 @@ export function Feed({
         >
           {profile
             ? kind === "news"
-              ? "Первой новостью может стать небольшая победа или большое событие."
+              ? "Новые публикации школы будут здесь."
               : "Создайте обращение или загляните сюда позже."
             : "Войдите по приглашению, чтобы видеть материалы своей школы."}
         </Empty>
       )}
+      {!profile && !demo && !busy && <button className="button guest-login" onClick={onLogin}>Войти в BilBook <ArrowUpRight size={18} /></button>}
+      {photo && <Modal title={photo.author_name || "Фото"} close={() => setPhoto(null)} immersive>
+        <img className="full-photo" src={demo ? demoPhoto(photo.media_id!) : "/api/media/" + photo.media_id} alt={photo.title || "Фото публикации"} />
+        <p className="photo-caption">{photo.title}</p>
+      </Modal>}
+      {deleting && <Modal title="Удалить публикацию?" close={() => setDeleting(null)} busy={deleteBusy}>
+        <div className="detail"><p>«{deleting.title}» исчезнет из ленты. Отменить удаление нельзя.</p>
+          {deleteError && <p className="error" role="alert">{deleteError}</p>}
+          <div className="form-links"><button className="button secondary" disabled={deleteBusy} onClick={() => setDeleting(null)}>Оставить</button><button className="button danger-button" disabled={deleteBusy} onClick={() => remove(deleting)}>{deleteBusy ? "Удаляем…" : "Удалить"}</button></div>
+        </div>
+      </Modal>}
       {cursor && (
         <button
           className="button secondary wide"
@@ -481,7 +503,7 @@ export function Stories({
   version: number;
 }) {
   const [items, setItems] = useState<FeedItem[]>([]),
-    [index, setIndex] = useState<number | null>(null),
+    [selectedId, setSelectedId] = useState<string | null>(null),
     [cursor, setCursor] = useState<string | null>(null),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
@@ -518,7 +540,8 @@ export function Stories({
     }, 1000);
     return () => clearInterval(t);
   }, [demo]);
-  const current = index === null ? null : items[index];
+  const index = items.findIndex((item) => item.id === selectedId);
+  const current = index < 0 ? null : items[index];
   async function more() {
     setBusy(true);
     try {
@@ -557,7 +580,7 @@ export function Stories({
             <button
               className="story-item"
               key={s.id}
-              onClick={() => setIndex(i)}
+              onClick={() => setSelectedId(s.id)}
             >
               <span className={"story-ring tone-" + (i % 4)}>
                 {demo ? (
@@ -577,9 +600,8 @@ export function Stories({
         })}
         {!items.length && (
           <p className="story-empty">
-            Каждый день — своя история.
-            <br />
-            <span>Поделитесь моментом со школой.</span>
+            Твой день в одном фото.
+            <br /><span>Истории исчезают через 24 часа.</span>
           </p>
         )}
         {cursor && (
@@ -605,14 +627,12 @@ export function Stories({
           count={items.length}
           demo={demo}
           profile={profile}
-          close={() => setIndex(null)}
-          prev={() => setIndex((i) => Math.max(0, (i || 0) - 1))}
-          next={() =>
-            setIndex((i) => ((i || 0) + 1 < items.length ? (i || 0) + 1 : null))
-          }
+          close={() => setSelectedId(null)}
+          prev={() => setSelectedId(items[Math.max(0, index - 1)]?.id || null)}
+          next={() => setSelectedId(items[index + 1]?.id || null)}
           deleted={() => {
             setItems((v) => v.filter((s) => s.id !== current.id));
-            setIndex(null);
+            setSelectedId(null);
           }}
         />
       )}
@@ -648,7 +668,7 @@ function StoryViewer({
     setError("");
   }, [item.id]);
   return (
-    <Modal title={item.author_name || "История"} close={close} busy={busy}>
+    <Modal title={item.author_name || "История"} close={close} busy={busy} immersive>
       <div
         className="story-view"
         onKeyDown={(e) => {

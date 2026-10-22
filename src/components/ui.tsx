@@ -1,18 +1,21 @@
 "use client";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useId, type ReactNode } from "react";
 import { X, LoaderCircle, ImagePlus, School } from "lucide-react";
 export function Modal({
   title,
   children,
   close,
   busy = false,
+  immersive = false,
 }: {
   title: string;
   children: ReactNode;
   close: () => void;
   busy?: boolean;
+  immersive?: boolean;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   useEffect(() => {
     const d = dialog.current;
     if (d && !d.open) d.showModal();
@@ -21,14 +24,15 @@ export function Modal({
   return (
     <dialog
       ref={dialog}
-      className="modal"
+      className={"modal" + (immersive ? " immersive" : "")}
+      aria-labelledby={titleId}
       onCancel={(e) => {
         e.preventDefault();
         if (!busy) close();
       }}
     >
       <header>
-        <h2>{title}</h2>
+        <h2 id={titleId}>{title}</h2>
         <button
           className="icon-button"
           aria-label="Закрыть"
@@ -123,6 +127,12 @@ export function FileField({
           required={required && !file}
           onChange={(e) => {
             const f = e.target.files?.[0];
+            if (!f) return;
+            if (!["image/jpeg", "image/png", "image/webp"].includes(f.type)) {
+              e.target.setCustomValidity("Выберите фото JPEG, PNG или WebP");
+              e.target.reportValidity();
+              return;
+            }
             if (f && f.size > 8 * 1024 * 1024) {
               e.target.setCustomValidity("Фото должно быть меньше 8 МБ");
               e.target.reportValidity();
