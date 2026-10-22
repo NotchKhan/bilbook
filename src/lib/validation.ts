@@ -1,4 +1,13 @@
 import { z } from "zod";
+import { classPattern } from "./profile-fields";
+const className = z.union([z.literal(""), z.string().regex(classPattern, "Выберите класс 7–11 и букву A, B или C")]);
+export const enrollmentSchema = z.object({
+  first_name: z.string().trim().min(1).max(39),
+  last_name: z.string().trim().min(1).max(39),
+  requested_role: z.enum(["student", "teacher"]),
+  class_name: className,
+  invitation_token: z.string().trim().min(32).max(128),
+}).refine((v) => v.requested_role !== "student" || Boolean(v.class_name), { message: "Выберите свой класс", path: ["class_name"] });
 const id = z.uuid();
 const media_id = id.nullish();
 const title = z.string().trim().min(3, "Заголовок: минимум 3 символа").max(140);
@@ -6,7 +15,8 @@ const body = z.string().trim().min(3, "Добавьте описание").max(1
 export const commands = {
   profile: z.object({
     name: z.string().trim().min(2).max(80),
-    class_name: z.string().trim().max(16).optional(),
+    class_name: className.optional(),
+    bio: z.string().trim().max(300).optional(),
     dormitory: z.boolean(),
     media_id,
   }),
@@ -58,9 +68,11 @@ export const commands = {
     is_responder: z.boolean(),
   }),
   resolve_report: z.object({ id }),
+  friend: z.object({ id, operation: z.enum(["request", "accept", "remove"]) }),
 } as const;
 export type Command = keyof typeof commands;
 export const authSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("google") }),
   z.object({
     action: z.literal("signin"),
     email: z.email().max(254),
@@ -70,7 +82,10 @@ export const authSchema = z.discriminatedUnion("action", [
     action: z.literal("signup"),
     email: z.email().max(254),
     password: z.string().min(10, "Пароль: минимум 10 символов").max(128),
-    name: z.string().trim().min(2).max(80),
+    first_name: z.string().trim().min(1).max(39),
+    last_name: z.string().trim().min(1).max(39),
+    requested_role: z.enum(["student", "teacher"]),
+    class_name: className,
     invitation_token: z.string().trim().min(32).max(128),
   }),
   z.object({ action: z.literal("reset"), email: z.email().max(254) }),

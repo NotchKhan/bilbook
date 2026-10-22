@@ -442,6 +442,7 @@ function UserEditor({
         {self ? " · вы" : ""}
       </h3>
       <p className="fine">{person.id}</p>
+      {person.requested_role === "teacher" && person.role === "student" && <p className="notice">Заявка на роль учителя. Подтвердите личность сотрудника перед назначением.</p>}
       <fieldset disabled={self || busy}>
         <label>
           Роль

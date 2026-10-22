@@ -64,7 +64,7 @@ beforeAll(async () => {
   await db.waitReady;
   await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
  create schema auth; create schema storage;
- create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,raw_user_meta_data jsonb default '{}');
+ create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,raw_user_meta_data jsonb default '{}',raw_app_meta_data jsonb default '{}');
  create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
  grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;
  create table storage.buckets(id text primary key,name text,public boolean,file_size_limit bigint,allowed_mime_types text[]);
@@ -74,6 +74,7 @@ beforeAll(async () => {
   await db.exec(
     readFileSync("supabase/migrations/202610210001_core.sql", "utf8"),
   );
+  await db.exec(readFileSync("supabase/migrations/202610220001_profiles_friends.sql", "utf8"));
   await db.query("insert into public.schools(id,name) values($1,$2),($3,$4)", [
     schoolA,
     "Тестовая школа А",
@@ -584,4 +585,93 @@ describe("actual migration / PostgreSQL RLS and RPC", () => {
       /row-level security/,
     );
   });
+});
+
+describe("onboarding and school friendships", () => {
+  it("Google identity without enrollment cannot read the school or self-assign a role", async () => {
+    const uid = '90000000-0000-4000-8000-000000000001';
+    await db.query("insert into auth.users(id,email_confirmed_at,raw_app_meta_data,raw_user_meta_data) values($1,now(),'{\"provider\":\"google\"}','{\"name\":\"Google User\",\"role\":\"admin\"}')", [uid]);
+    await as(uid);
+    expect(await rows("select * from public.profiles")).toHaveLength(0);
+    expect(await rows("select * from public.news")).toHaveLength(0);
+    await rejected(() => command("friend", {id:student,operation:"request"}), /Нет доступа/);
+    await rejected(() => rows("select public.people()"), /Нет доступа/);
+  });
+  it("enrollment consumes a valid invitation and teacher selection never grants teacher privileges", async () => {
+    const uid = '90000000-0000-4000-8000-000000000002', token = 'new-enrollment-test-token';
+    await db.query("insert into auth.users(id,email_confirmed_at,raw_app_meta_data) values($1,now(),'{\"provider\":\"google\"}')", [uid]);
+    await db.query("insert into public.invitations(school_id,token_hash,expires_at,max_uses) values($1,$2,now()+interval '1 hour',1)",[schoolA,hash(token)]);
+    await as(uid);
+    await rejected(() => rows("select public.enroll($1)",[JSON.stringify({name:"New Teacher",requested_role:"teacher",invitation_token:"wrong"})]), /Приглашение/);
+    await rows("select public.enroll($1)",[JSON.stringify({name:"New Teacher",requested_role:"teacher",invitation_token:token,role:"admin",school_id:schoolB})]);
+    expect((await rows("select role,requested_role,school_id,is_responder from public.profiles where id=$1",[uid]))[0]).toEqual({role:"student",requested_role:"teacher",school_id:schoolA,is_responder:false});
+    await rejected(() => rows("select public.enroll($1)",[JSON.stringify({name:"New Teacher",requested_role:"teacher",invitation_token:token})]), /уже создан/);
+  });
+  it("requires confirmed identity and valid class before enrollment", async () => {
+    const uid = '90000000-0000-4000-8000-000000000003';
+    await db.query("insert into auth.users(id,raw_app_meta_data) values($1,'{\"provider\":\"google\"}')",[uid]);
+    await as(uid);
+    await rejected(() => rows("select public.enroll('{}')"), /Подтвердите/);
+    await root();await db.query("update auth.users set email_confirmed_at=now() where id=$1",[uid]);await as(uid);
+    await rejected(() => rows("select public.enroll($1)",[JSON.stringify({name:"New Student",requested_role:"student",class_name:"12Z"})]), /Выберите класс/);
+  });
+  it("only the recipient can accept; duplicate and reciprocal requests stay a single pending pair", async () => {
+    await as(student);
+    await command("friend",{id:peer,operation:"request"});
+    await command("friend",{id:peer,operation:"request"});
+    await rejected(() => command("friend",{id:peer,operation:"accept"}), /Заявка/);
+    await as(peer);
+    await command("friend",{id:student,operation:"request"});
+    expect(await rows("select * from public.friendships")).toHaveLength(1);
+    expect((await rows("select status from public.friendships"))[0].status).toBe("pending");
+    await command("friend",{id:student,operation:"accept"});
+    expect((await rows("select status from public.friendships"))[0].status).toBe("accepted");
+    await command("friend",{id:student,operation:"remove"});
+    expect(await rows("select * from public.friendships")).toHaveLength(0);
+  });
+  it("rejects self, other-school and blocked targets and hides friendship from third parties", async () => {
+    await as(student);
+    await rejected(() => command("friend",{id:student,operation:"request"}), /недоступен/);
+    await rejected(() => command("friend",{id:other,operation:"request"}), /недоступен/);
+    await command("friend",{id:peer,operation:"request"});
+    await as(moderator);expect(await rows("select * from public.friendships")).toHaveLength(0);
+    await root();await db.query("update public.profiles set blocked=true where id=$1",[peer]);await as(student);
+    expect(await rows("select * from public.friendships")).toHaveLength(0);
+    await rejected(() => command("friend",{id:peer,operation:"request"}), /недоступен/);
+  });
+  it("filters school directory by class and name; biography cannot change privileges", async () => {
+    await as(peer);await command("profile",{name:"Arman Test",class_name:"9B",bio:"Люблю робототехнику",dormitory:false,role:"admin"});
+    await as(student);
+    const found = await rows("select * from public.people('Arman','9B','all',0)");
+    expect(found).toHaveLength(1);expect(found[0]).toMatchObject({id:peer,bio:"Люблю робототехнику",role:"student",relationship:"none"});
+    expect(await rows("select * from public.people('Arman','10A','all',0)")).toHaveLength(0);
+    expect((await rows("select * from public.people()" )).some(p=>p.id===other)).toBe(false);
+    await rejected(()=>command("profile",{name:"New name",bio:"x".repeat(301),dormitory:false}),/300/);
+    await rejected(()=>command("profile",{name:"New name",class_name:"6D",dormitory:false}),/Выберите класс/);
+  });
+  it("does not expose direct writes or the original command function", async () => {
+    await as(student);
+    await rejected(()=>db.query("insert into public.friendships(school_id,requester_id,addressee_id) values($1,$2,$3)",[schoolA,student,peer]),/permission denied/);
+    await rejected(()=>rows("select private.command_v1('profile','{}')"),/permission denied/);
+  });
+});
+
+it("does not treat user-controlled Google metadata as a trusted provider", async () => {
+  await rejected(() => db.query("insert into auth.users(id,email_confirmed_at,raw_user_meta_data) values(gen_random_uuid(),now(),$1)", [JSON.stringify({name:"Fake Google",provider:"google",role:"admin"})]), /Приглашение/);
+});
+it("hides unconfirmed people from search and refuses their friend requests", async () => {
+  await as(student);
+  expect((await rows("select * from public.people()")).some(p => p.id === unconfirmed)).toBe(false);
+  await rejected(() => command("friend",{id:unconfirmed,operation:"request"}), /недоступен/);
+  await as(unconfirmed);
+  await rejected(() => command("friend",{id:student,operation:"request"}), /Нет доступа/);
+});
+it("filters accepted friends separately from incoming and outgoing invitations", async () => {
+  await as(student); await command("friend",{id:peer,operation:"request"});
+  expect(await rows("select * from public.people('','','outgoing',0)")).toHaveLength(1);
+  expect(await rows("select * from public.people('','','friends',0)")).toHaveLength(0);
+  await as(peer);
+  expect(await rows("select * from public.people('','','incoming',0)")).toHaveLength(1);
+  await command("friend",{id:student,operation:"accept"});
+  expect(await rows("select * from public.people('','','friends',0)")).toHaveLength(1);
 });

@@ -75,6 +75,8 @@ export async function requireUser() {
     .eq("id", user.id)
     .single();
   if (pe && pe.code !== "PGRST116") checkDb(pe);
+  if (!profile && (!pe || pe.code === "PGRST116"))
+    throw new HttpError(409, "Завершите регистрацию в школе.");
   if (pe || !profile || profile.blocked)
     throw new HttpError(
       403,

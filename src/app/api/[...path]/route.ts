@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import sharp from "sharp";
 import { z } from "zod";
-import { authSchema, parseCommand } from "@/lib/validation";
+import { authSchema, parseCommand, enrollmentSchema } from "@/lib/validation";
 import {
   authLimit,
   checkDb,
@@ -71,6 +71,11 @@ export async function GET(request: Request) {
           email: user.email,
         });
       } catch (e) {
+        if (e instanceof HttpError && e.status === 409) {
+          const db = await userClient();
+          const { data: { user } } = await db.auth.getUser();
+          return json({ configured: true, profile: null, onboarding: true, suggestedName: user?.user_metadata?.name || "", email: user?.email });
+        }
         if (e instanceof HttpError && (e.status === 401 || e.status === 403))
           return json({
             configured: true,
@@ -81,6 +86,17 @@ export async function GET(request: Request) {
       }
     }
     const { db, profile } = await requireUser();
+    if (path === "people") {
+      const offset = z.coerce.number().int().min(0).max(10000).parse(url.searchParams.get("offset") || 0);
+      const { data, error } = await db.rpc("people", {
+        search_text: z.string().max(80).parse(url.searchParams.get("q") || ""),
+        class_filter: z.string().max(4).parse(url.searchParams.get("class") || ""),
+        kind: z.enum(["all", "teachers", "friends", "incoming", "outgoing"]).parse(url.searchParams.get("kind") || "all"),
+        page_offset: offset,
+      });
+      checkDb(error);
+      return json({ items: (data || []).slice(0, 20), more: (data || []).length > 20 });
+    }
     if (path.startsWith("media/")) {
       const id = z.uuid().parse(path.split("/")[1]);
       // RLS proves access, including confidential request permissions, BEFORE service access.
@@ -311,6 +327,16 @@ export async function POST(request: Request) {
     sameOrigin(request);
     const path = pathOf(request);
     if (path === "auth") return await auth(request);
+    if (path === "enroll") {
+      const fields = enrollmentSchema.parse(await readJson(request));
+      const db = await userClient();
+      const { data: { user } } = await db.auth.getUser();
+      if (!user?.email_confirmed_at) throw new HttpError(401, "Войдите и подтвердите почту");
+      await authLimit(request, user.email);
+      const { error } = await db.rpc("enroll", { payload: { ...fields, name: fields.first_name + " " + fields.last_name } });
+      checkDb(error);
+      return json({ ok: true });
+    }
     if (path === "upload") return await upload(request);
     const { db, profile } = await requireUser();
     if (path === "command") {
@@ -387,7 +413,14 @@ async function auth(request: Request) {
     return response;
   }
   await authLimit(request, "email" in values ? values.email : "");
-  if (values.action === "signin") {
+  if (values.action === "google") {
+    const settings = await fetch(process.env.NEXT_PUBLIC_SUPABASE_URL + "/auth/v1/settings", { headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY! }, cache: "no-store", signal: AbortSignal.timeout(8000) });
+    const provider = settings.ok ? await settings.json() : null;
+    if (!provider?.external?.google) throw new HttpError(503, "Вход через Google ещё не подключён. Пока войдите или зарегистрируйтесь по email.");
+    const { data, error } = await db.auth.signInWithOAuth({ provider: "google", options: { redirectTo: process.env.APP_URL + "/auth/callback", skipBrowserRedirect: true, queryParams: { prompt: "select_account" } } });
+    if (error || !data.url) throw new HttpError(503, "Вход через Google ещё не подключён. Используйте email.");
+    return json({ url: data.url });
+  } else if (values.action === "signin") {
     const { error } = await db.auth.signInWithPassword({
       email: values.email,
       password: values.password,
@@ -398,11 +431,12 @@ async function auth(request: Request) {
         "Не удалось войти. Проверьте email, пароль и подтверждение почты.",
       );
   } else if (values.action === "signup") {
+    const enrollment = enrollmentSchema.parse(values);
     const { error } = await db.auth.signUp({
       email: values.email,
       password: values.password,
       options: {
-        data: { name: values.name, invitation_token: values.invitation_token },
+        data: { name: enrollment.first_name + " " + enrollment.last_name, invitation_token: enrollment.invitation_token, class_name: enrollment.class_name, requested_role: enrollment.requested_role },
         emailRedirectTo: process.env.APP_URL + "/auth/callback",
       },
     });

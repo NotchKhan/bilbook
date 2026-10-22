@@ -357,3 +357,50 @@ textarea { resize: vertical; min-height: 110px; }
 @media (max-width: 700px) {
   .bottom-nav button { position: relative; isolation: isolate; }
 }
+/* Entry and school directory */
+.welcome { min-height: 100dvh; display: grid; grid-template-columns: 1fr 1fr; max-width: 1240px; margin: auto; padding: 50px; gap: 70px; align-items: center; }
+.welcome-story { min-height: 620px; display: flex; flex-direction: column; justify-content: space-between; padding: 25px 0; }
+.welcome-copy { padding: 60px 0; }
+.welcome-copy h1 { font-size: clamp(44px,5vw,66px); line-height: 1.08; letter-spacing: -2px; margin: 24px 0; }
+.welcome-copy p { font-size: 17px; max-width: 300px; color: var(--muted); }
+.welcome-school, .welcome-footer { display: flex; gap: 10px; align-items: center; color: var(--muted); font-size: 12px; }
+.welcome-school svg { color: var(--brand); }
+.welcome-card { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: 32px; width: 100%; }
+.welcome-card > h2 { font-size: 26px; margin-bottom: 8px; }
+.welcome-card > .muted { font-size: 13px; margin-bottom: 25px; }
+.google-button { background: #f3f4f6; color: #16181c; border-color: #f3f4f6; }
+.google-button:hover:not(:disabled) { background: #d9e5f7; }
+.google-letter { font-size: 21px; font-weight: 750; margin-right: 6px; }
+.auth-divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 11px; margin: 20px 0; }
+.auth-divider::before, .auth-divider::after { content: ""; height: 1px; background: var(--line); flex: 1; }
+.people-filters { display: grid; grid-template-columns: 1fr 150px; gap: 10px; margin-bottom: 18px; }
+.search-field { position: relative; }
+.search-field svg { position: absolute; left: 14px; top: 15px; color: var(--muted); }
+.search-field input { padding-left: 42px; }
+.people-list { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
+.person-card { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); padding: 18px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.person-identity { display: flex; align-items: center; gap: 12px; text-align: left; width: 100%; padding: 0; }
+.person-identity > span:last-child { min-width: 0; }
+.person-identity strong { overflow-wrap: anywhere; font-size: 14px; }
+.person-identity small { font-size: 11px; margin-top: 4px; }
+.person-bio { color: var(--muted); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.person-actions { display: flex; align-items: center; gap: 7px; margin-top: auto; }
+.person-actions .button { font-size: 12px; min-height: 42px; }
+.member-profile { display: flex; flex-direction: column; gap: 16px; align-items: start; }
+.profile-bio { color: var(--ink); }
+@media(max-width:900px) { .welcome { gap: 30px; padding: 30px; } .welcome-copy h1 { font-size: 44px; } }
+@media(max-width:700px) {
+ .welcome { display: block; padding: 24px 18px calc(25px + env(safe-area-inset-bottom)); }
+ .welcome-story { min-height: 0; padding: 8px 4px 24px; }
+ .welcome-copy { padding: 26px 0 0; }
+ .welcome-copy h1 { font-size: 40px; margin: 14px 0 12px; }
+ .welcome-copy p { font-size: 14px; max-width: none; }
+ .welcome-school { font-size: 10px; }
+ .welcome-footer { display: none; }
+ .welcome-card { padding: 24px 18px; border-radius: 18px; }
+ .welcome-card > h2 { font-size: 23px; }
+ .welcome-card .form-grid { gap: 10px; }
+ .people-filters { grid-template-columns: minmax(0,1fr) 120px; }
+ .people-filters input, .people-filters select { font-size: 14px; }
+ .people-list { grid-template-columns: 1fr; }
+}

@@ -10,6 +10,8 @@ export type Profile = {
   class_name: string | null;
   dormitory: boolean;
   avatar_id: string | null;
+  bio?: string;
+  requested_role?: "student" | "teacher";
 };
 export type Session = {
   configured: boolean;
@@ -17,6 +19,8 @@ export type Session = {
   school?: string;
   email?: string;
   error?: string;
+  onboarding?: boolean;
+  suggestedName?: string;
 };
 export type FeedItem = {
   id: string;

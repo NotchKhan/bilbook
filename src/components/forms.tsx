@@ -5,6 +5,8 @@ import { api, command } from "@/lib/client";
 import { compressImage } from "@/lib/compress";
 import type { Profile } from "@/lib/types";
 import { categories } from "@/lib/types";
+import { schoolClasses } from "@/lib/profile-fields";
+import { EnrollmentFields } from "./welcome";
 import { Modal, FileField } from "./ui";
 export function AuthForm({
   close,
@@ -76,18 +78,7 @@ export function AuthForm({
           </p>
           <form onSubmit={submit} className="form">
             <fieldset disabled={busy || Boolean(message)}>
-              {mode === "signup" && (
-                <label>
-                  Имя и фамилия
-                  <input
-                    name="name"
-                    autoComplete="name"
-                    required
-                    minLength={2}
-                    maxLength={80}
-                  />
-                </label>
-              )}
+              {mode === "signup" && <EnrollmentFields />}
               {mode !== "password" && (
                 <label>
                   Email
@@ -116,19 +107,7 @@ export function AuthForm({
                   {mode !== "signin" && <small>Не менее 10 символов</small>}
                 </label>
               )}
-              {mode === "signup" && (
-                <label>
-                  Код приглашения
-                  <input
-                    name="invitation_token"
-                    required
-                    minLength={32}
-                    maxLength={128}
-                    autoComplete="off"
-                    spellCheck={false}
-                  />
-                </label>
-              )}
+              
               {error && (
                 <p className="error" role="alert">
                   {error}
@@ -310,15 +289,8 @@ export function Compose({
                   maxLength={80}
                 />
               </label>
-              <label>
-                Класс <span className="muted">необязательно</span>
-                <input
-                  name="class_name"
-                  defaultValue={profile.class_name || ""}
-                  maxLength={16}
-                  placeholder="Например, 10 A"
-                />
-              </label>
+              <label>Класс<select name="class_name" defaultValue={(profile.class_name || "").replace(/\s/g, "")}><option value="">Не указан</option>{schoolClasses.map(c => <option key={c}>{c}</option>)}</select></label>
+              <label>О себе<textarea name="bio" defaultValue={profile.bio || ""} maxLength={300} rows={3} placeholder="Интересы, увлечения, немного о себе" /><small>До 300 символов · видно участникам своей школы</small></label>
               <label className="check">
                 <input
                   type="checkbox"

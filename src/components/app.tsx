@@ -18,6 +18,7 @@ import {
   X,
   ImagePlus,
   ChevronRight,
+  Users,
 } from "lucide-react";
 import { api } from "@/lib/client";
 import { appName, categories, roles, type Session } from "@/lib/types";
@@ -27,13 +28,15 @@ import { Avatar, Busy, Modal } from "./ui";
 const AuthForm = dynamic(() => import("./forms").then((m) => m.AuthForm), { loading: () => <Busy /> });
 const Compose = dynamic(() => import("./forms").then((m) => m.Compose), { loading: () => <Busy /> });
 const Admin = dynamic(() => import("./admin").then((m) => m.Admin), { loading: () => <Busy /> });
+const Welcome = dynamic(() => import("./welcome").then((m) => m.Welcome), { loading: () => <Busy /> });
+const People = dynamic(() => import("./people").then((m) => m.People), { loading: () => <Busy /> });
 type InstallEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: string }>;
 };
 const navigation = [
   { id: "home", label: "Главная", Icon: Home },
-  { id: "news", label: "Новости", Icon: Newspaper },
+  { id: "people", label: "Люди", Icon: Users },
   { id: "requests", label: "Обращения", Icon: MessageSquareText },
   { id: "profile", label: "Профиль", Icon: UserRound },
 ];
@@ -180,6 +183,8 @@ export function App({ demo = false }: { demo?: boolean }) {
       setBusy(false);
     }
   }
+  if (!demo && loading) return <div className="loading-screen"><Busy /></div>;
+  if (!demo && !profile && !reset) return <Welcome session={{ ...session, error: error || session.error }} done={() => {setError("");void refresh();}} />;
   return (
     <>
       <div className="app-shell">
@@ -312,7 +317,7 @@ export function App({ demo = false }: { demo?: boolean }) {
           <div
             className={
               "content-grid " +
-              (["profile", "admin"].includes(tab) ? "single" : "")
+              (["profile", "admin", "people"].includes(tab) ? "single" : "")
             }
           >
             <main id="main-content">
@@ -497,6 +502,8 @@ export function App({ demo = false }: { demo?: boolean }) {
                           />
                           <h2>{profile.name}</h2>
                           <p className="muted">{session.school}</p>
+                          {profile.bio && <p className="preserve profile-bio">{profile.bio}</p>}
+                          {profile.requested_role === "teacher" && profile.role === "student" && <p className="notice">Учитель · ожидает подтверждения администратора</p>}
                           <span className="badge">{roles[profile.role]}</span>
                           <dl>
                             <div>
@@ -595,6 +602,7 @@ export function App({ demo = false }: { demo?: boolean }) {
                       </div>
                     </>
                   )}
+                  {tab === "people" && (profile ? <People /> : <div className="empty"><h3>Участники своей школы</h3><p>Поиск и друзья доступны после входа.</p><button className="button" onClick={login}>Войти</button></div>)}
                   {tab === "admin" && manager && profile && (
                     <Admin
                       profile={profile}
