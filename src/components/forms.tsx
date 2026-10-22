@@ -107,7 +107,7 @@ export function AuthForm({
                   {mode !== "signin" && <small>Не менее 10 символов</small>}
                 </label>
               )}
-              
+
               {error && (
                 <p className="error" role="alert">
                   {error}
